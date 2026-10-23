@@ -1,0 +1,60 @@
+{
+  "hardware": {
+    "chip": "Apple M5 Pro",
+    "memory_bytes": 68719476736,
+    "os": "27.0.1",
+    "architecture": "arm64",
+    "python": "3.12.15",
+    "packages": {
+      "mflux": "0.23.0",
+      "mlx": "0.32.4",
+      "pillow": "12.3.0",
+      "fastapi": "0.161.1"
+    }
+  },
+  "model": {
+    "repo": "black-forest-labs/FLUX.2-klein-4B",
+    "revision": "e7b7dc27f91deacad38e78976d1f2b499d76a294"
+  },
+  "preset": "portrait",
+  "resolution": [
+    832,
+    1184
+  ],
+  "steps": 4,
+  "quantization": 8,
+  "prompt": "A cheerful small snowman celebrating a birthday in a sparkling ice palace, lavender balloons, snowflakes, blue and purple palette, polished storybook illustration, no lettering.",
+  "methodology": "One worker process per image, including model load, inference and A4 PNG/PDF exports. One warm-up excluded from summary. OS/model disk caches may be warm. No parallel generation.",
+  "runs": [
+    {
+      "elapsed_seconds": 9.35,
+      "peak_gpu_memory_gb": 12.9,
+      "wall_seconds": 10.984,
+      "seed": 43
+    },
+    {
+      "elapsed_seconds": 9.3,
+      "peak_gpu_memory_gb": 12.9,
+      "wall_seconds": 11.002,
+      "seed": 44
+    },
+    {
+      "elapsed_seconds": 9.39,
+      "peak_gpu_memory_gb": 12.9,
+      "wall_seconds": 11.057,
+      "seed": 45
+    }
+  ],
+  "warmup": {
+    "elapsed_seconds": 9.87,
+    "peak_gpu_memory_gb": 12.9,
+    "wall_seconds": 11.59,
+    "seed": 42
+  },
+  "summary": {
+    "median_wall_seconds": 11.002,
+    "min_wall_seconds": 10.984,
+    "max_wall_seconds": 11.057,
+    "max_peak_gpu_memory_gb": 12.9
+  }
+}

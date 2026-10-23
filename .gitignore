@@ -1,0 +1,17 @@
+.venv/
+.runtime/
+.cache/
+models/
+outputs/
+logs/
+__pycache__/
+.DS_Store
+.operation.lock
+.env
+.env.*
+!.env.example
+WORK_LOG.md
+.local/
+*.egg-info/
+.coverage
+.pytest_cache/

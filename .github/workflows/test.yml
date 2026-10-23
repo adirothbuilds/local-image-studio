@@ -1,0 +1,18 @@
+name: Tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.5'
+      - name: Install locked dependencies (no model)
+        run: |
+          uv python install 3.12
+          uv sync --locked
+      - name: Run tests
+        run: uv run --no-sync python -m unittest discover -s tests -v
