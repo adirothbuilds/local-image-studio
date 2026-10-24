@@ -18,7 +18,7 @@ async function showImage(id) {
   selectedJob = id; $('update-print').hidden = false;
   const img = document.createElement('img'); img.src = `/files/${id}/a4.png?v=${Date.now()}`; img.alt = 'Your A4 artwork preview';
   $('canvas').replaceChildren(img); $('downloads').replaceChildren();
-  for (const [file, label] of [['original.png','Original'],['a4.png','A4 PNG · 300 DPI'],['a4.pdf','A4 PDF'],['settings.json','Settings'],['generation.log','Log']]) {
+  for (const [file, label] of [['original.png','Original'],['print.png','Print PNG · 300 DPI'],['print.pdf','Print PDF'],['settings.json','Settings'],['generation.log','Log']]) {
     const a = document.createElement('a'); a.href = `/files/${id}/${file}`; a.textContent = label; a.download = file;
     $('downloads').append(a);
   }
@@ -91,13 +91,13 @@ $('references').onchange = () => {
   previewURLs.forEach(url => URL.revokeObjectURL(url)); previewURLs = []; $('reference-preview').replaceChildren();
   for (const file of Array.from($('references').files).slice(0,4)) { const img = document.createElement('img'); img.src = URL.createObjectURL(file); previewURLs.push(img.src); img.alt = 'Reference preview'; $('reference-preview').append(img); }
 };
-$('preset').onchange = () => { if (['portrait','landscape'].includes($('preset').value)) $('orientation').value = $('preset').value; };
+$('preset').onchange = () => { const preset=$('preset').value; if (['portrait','landscape','square'].includes(preset)) $('orientation').value = preset === 'square' ? 'square20' : preset; };
 $('refresh').onclick = async () => { try { await status(); await history(); } catch(error) { $('error').textContent = error.message; } };
 (async () => { try { await status(); const jobs = await history(); const running = jobs.find(j => j.state === 'running'); if (running) monitor(running.id); else if (jobs.find(j => j.state === 'complete')) { const latest = jobs.find(j => j.state === 'complete'); await showImage(latest.id); await loadPrintSettings(latest.id); } } catch(error) { $('error').textContent = error.message; } })();
 
 async function loadPrintSettings(id) {
   const settings = await api(`/files/${id}/settings.json`);
-  for (const field of ['text','orientation','text_position','margin_mm','text_mode','text_style','text_style_detail','text_background','text_x','text_y','text_scale']) $(field).value = settings[field] ?? ({text_mode:'overlay',text_style:'ice',text_background:'banner',text_scale:1}[field] ?? '');
+  for (const field of ['text','text_font_size','text_outline_width','text_outline_color','text_font','text_color','orientation','text_position','margin_mm','text_mode','text_style','text_style_detail','text_background','text_x','text_y','text_scale']) $(field).value = settings[field] ?? ({text_font:'classic',text_mode:'overlay',text_style:'ice',text_background:'banner',text_scale:1}[field] ?? '');
   letteringMode(); positionLayer();
   $('print-message').textContent = settings.text ? `${settings.text_mode === 'integrated' ? 'AI lettering requested (check spelling)' : 'Message on this print'}: ${settings.text}` : 'This print has no message. Enter one on the left and click Apply below the downloads.';
 }
@@ -105,7 +105,7 @@ $('update-print').onclick = async () => {
   if (!selectedJob) return;
   $('error').textContent = ''; $('update-print').disabled = true; $('canvas-apply').disabled = true;
   try {
-    await api(`/api/jobs/${selectedJob}/print`, {method:'POST', headers:{'X-Studio-Token':token,'Content-Type':'application/json'}, body:JSON.stringify({text:$('text').value, text_mode:$('text_mode').value, text_style:$('text_style').value, text_background:$('text_background').value, text_scale:Number($('text_scale').value), text_x:$('text_x').value === '' ? null : Number($('text_x').value), text_y:$('text_y').value === '' ? null : Number($('text_y').value), text_style_detail:$('text_style_detail').value, orientation:$('orientation').value, text_position:$('text_position').value, margin_mm:Number($('margin_mm').value)})});
+    await api(`/api/jobs/${selectedJob}/print`, {method:'POST', headers:{'X-Studio-Token':token,'Content-Type':'application/json'}, body:JSON.stringify({text:$('text').value, text_font_size:$('text_font_size').value === '' ? null : Number($('text_font_size').value), text_outline_width:$('text_outline_width').value === '' ? null : Number($('text_outline_width').value), text_outline_color:$('text_outline_color').value, text_font:$('text_font').value, text_color:$('text_color').value, text_mode:$('text_mode').value, text_style:$('text_style').value, text_background:$('text_background').value, text_scale:Number($('text_scale').value), text_x:$('text_x').value === '' ? null : Number($('text_x').value), text_y:$('text_y').value === '' ? null : Number($('text_y').value), text_style_detail:$('text_style_detail').value, orientation:$('orientation').value, text_position:$('text_position').value, margin_mm:Number($('margin_mm').value)})});
     await showImage(selectedJob); await loadPrintSettings(selectedJob);
     $('job-status').textContent = 'A4 print updated. Original artwork preserved; no regeneration needed.';
   } catch(error) { $('error').textContent = error.message; }
@@ -119,6 +119,8 @@ function letteringMode() {
   $('ai-art-direction').hidden = !integrated;
   $('exact-text-background').hidden = !styled;
   $('manual-layout').hidden = integrated;
+  $('letter-color-controls').hidden = integrated;
+  $('letter-font-controls').hidden = integrated;
   syncCanvasControls();
   $('text-size-label').textContent = `${Math.round(Number($('text_scale').value)*100)}%`;
   $('lettering-hint').textContent = integrated ? 'The AI designs the message into the scene. Inspect every letter before printing: Hebrew and names can be misspelled. Changing AI lettering requires a new generation.' : styled ? 'Exact Hebrew letters with decorative ice, ribbon, or gold styling. Change the message, style, or placement and Apply; no regeneration needed. AI-drawn misspelled text already in a picture requires a new clean generation.' : 'Exact typed text is added to the A4 export. You can change it later without regenerating the picture.';
@@ -153,6 +155,17 @@ $('text_position').onchange = () => {
 
 function syncCanvasControls() {
   $('canvas-controls').hidden = !layerGeometry || $('text_mode').value === 'integrated';
+  $('canvas-text-font').value=$('text_font').value;
+  $('canvas-text-style').value=$('text_style').value;
+  $('canvas-theme-controls').hidden=$('text_mode').value !== 'styled';
+  const outlineCustom=Boolean($('text_outline_color').value);
+  $('use-outline-color').checked=outlineCustom; $('outline-color-picker').disabled=!outlineCustom;
+  if (outlineCustom) $('outline-color-picker').value=$('text_outline_color').value;
+  const custom=Boolean($('text_color').value);
+  for (const [toggle,picker] of [['use-custom-color','letter-color-picker'],['canvas-custom-color','canvas-color-picker']]) {
+    $(toggle).checked=custom; $(picker).disabled=!custom;
+    if (custom) $(picker).value=$('text_color').value;
+  }
   $('canvas-text-scale').value = $('text_scale').value;
   $('canvas-size-label').textContent = `${Math.round(Number($('text_scale').value)*100)}%`;
   $('canvas-text-background').value = $('text_background').value;
@@ -171,3 +184,32 @@ $('canvas-text-background').onchange = () => {
   $('text_background').onchange();
 };
 $('canvas-apply').onclick = () => $('update-print').click();
+
+for (const [toggle,picker] of [['use-custom-color','letter-color-picker'],['canvas-custom-color','canvas-color-picker']]) {
+  const updateColor=() => {
+    $('text_color').value=$(toggle).checked ? $(picker).value : '';
+    syncCanvasControls();
+    $('job-status').textContent='Letter color changed · click Apply to update the preview and downloads.';
+  };
+  $(toggle).onchange=updateColor;
+  $(picker).oninput=updateColor;
+}
+
+for (const [canvas,form] of [['canvas-text-font','text_font'],['canvas-text-style','text_style']]) {
+  $(form).onchange=() => {
+    syncCanvasControls();
+    $('job-status').textContent='Writing style changed · click Apply to update the preview and downloads.';
+  };
+  $(canvas).onchange=() => { $(form).value=$(canvas).value; $(form).onchange(); };
+}
+
+$('text_outline_width').onchange=() => { $('job-status').textContent='Outline changed · click Apply to save.'; };
+const updateOutlineColor=() => {
+  $('text_outline_color').value=$('use-outline-color').checked ? $('outline-color-picker').value : '';
+  syncCanvasControls();
+  $('job-status').textContent='Outline color changed · click Apply to save.';
+};
+$('use-outline-color').onchange=updateOutlineColor;
+$('outline-color-picker').oninput=updateOutlineColor;
+
+$('text_font_size').oninput=() => { $('job-status').textContent='Font size changed · click Apply to save. Clear the size for automatic fitting.'; };

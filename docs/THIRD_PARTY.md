@@ -1,6 +1,6 @@
 # Third-party dependencies
 
-The MIT license in this repository covers application code written for Local Image Studio. It does not replace licenses for separately installed packages, downloaded model weights, or macOS fonts. No dependency code, model weights, or fonts are vendored here.
+The MIT license in this repository covers application code written for Local Image Studio. It does not replace licenses for separately installed packages, downloaded model weights, or macOS fonts. No dependency code or model weights are vendored here. The bundled open fonts below retain their own licenses.
 
 - **FLUX.2 Klein 4B** weights: [Apache-2.0 model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B). Downloads preserve the upstream model license/card.
 - **MFLUX**: [MIT](https://github.com/mflux-community/mflux/blob/main/LICENSE).
@@ -78,3 +78,9 @@ The inventory below is generated from metadata of the tested locked installation
 | tzdata | 2026.5 | Apache-2.0 |
 | urllib3 | 2.8.0 | MIT |
 | uvicorn | 0.54.0 | BSD-3-Clause |
+
+## Bundled lettering fonts
+
+- Varela Round: studio/fonts/varelaround, SIL Open Font License 1.1 (OFL.txt).
+- Gveret Levin: studio/fonts/gveretlevin, SIL Open Font License 1.1 (OFL.txt).
+- Exact upstream Google Fonts revisions and source URLs are recorded in studio/fonts/sources.json. Font files are unmodified and are loaded from the project; no system-wide installation.

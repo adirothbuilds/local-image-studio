@@ -37,6 +37,42 @@ class LetteringTests(unittest.TestCase):
         self.assertEqual(print_text(settings), 'יום הולדת שמח 3')
 
 class StyledTextTests(unittest.TestCase):
+    def test_font_size_and_outline_controls(self):
+        from studio.styled_text import outline_width, font_points
+        small=styled_banner('מזל טוב',1800,'ice',False,'#EFC5D5','handwritten',0,'',24)
+        large=styled_banner('מזל טוב',1800,'ice',False,'#EFC5D5','handwritten',0,'',64)
+        edged=styled_banner('מזל טוב',1800,'ice',False,'#EFC5D5','handwritten',8,'#FFFFFF',64)
+        self.assertGreater(large.height,small.height)
+        self.assertNotEqual(large.tobytes(),edged.tobytes())
+        self.assertEqual(outline_width('0'),0)
+        self.assertIsNone(outline_width(''))
+        for value in (-1,13,'bad',float('nan'),True):
+            with self.assertRaises(ValueError): outline_width(value)
+        for value in (0,145,'bad',float('nan'),True):
+            with self.assertRaises(ValueError): font_points(value)
+
+    def test_hebrew_writing_fonts_are_distinct_and_validated(self):
+        from studio.styled_text import FONT_CHOICES, lettering_font
+        from fontTools.ttLib import TTFont
+        text='יום הולדת שמח 3'
+        samples=[styled_banner(text,1800,'ice',False,'#EFC5D5',choice) for choice in FONT_CHOICES]
+        self.assertEqual(len({image.tobytes() for image in samples}),3)
+        for choice in ('rounded','handwritten'):
+            font=TTFont(FONT_CHOICES[choice])
+            self.assertTrue(all(ord(ch) in font.getBestCmap() for ch in text))
+            font.close()
+        with self.assertRaises(ValueError): lettering_font('../../font.ttf')
+
+    def test_custom_color_preserves_shape_and_transparency(self):
+        from studio.styled_text import letter_color
+        blue=styled_banner('יום הולדת שמח',1800,'ice',background=False)
+        pink=styled_banner('יום הולדת שמח',1800,'ice',background=False,color='#e66ca6')
+        self.assertEqual(blue.getchannel('A').tobytes(),pink.getchannel('A').tobytes())
+        self.assertNotEqual(blue.tobytes(),pink.tobytes())
+        self.assertEqual(letter_color('#e66ca6'),'#E66CA6')
+        for invalid in ('pink','#123','url(test)',123,False):
+            with self.assertRaises(ValueError): letter_color(invalid)
+
     def test_hebrew_banner_styles_and_deterministic_output(self):
         text='יום הולדת שמח 3'
         banners=[styled_banner(text,1800,style) for style in ('ice','ribbon','gold')]
@@ -50,6 +86,20 @@ class StyledTextTests(unittest.TestCase):
         self.assertNotEqual(banners[0].tobytes(),styled_banner('יום הולדת שמח 4',1800,'ice').tobytes())
 
 class PrintingTests(unittest.TestCase):
+    def test_twenty_centimeter_square_has_exact_physical_pdf_size(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder=Path(temp)
+            Image.new('RGB',(1024,1024),'blue').save(folder/'source.png')
+            export_print(folder/'source.png',folder,'square20','יום הולדת שמח','top',0,text_mode='styled',text_background='none')
+            with Image.open(folder/'a4.png') as image:
+                self.assertEqual(image.size,(2362,2362))
+                self.assertAlmostEqual(image.info['dpi'][0],300,delta=.1)
+            pdf=(folder/'a4.pdf').read_bytes()
+            box=re.search(rb'/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)',pdf)
+            self.assertIsNotNone(box)
+            for value in box.groups():
+                self.assertAlmostEqual(float(value),200/25.4*72,delta=.01)
+
     def test_a4_layout_and_pdf_dimensions(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp)
@@ -195,6 +245,22 @@ class ApiTests(unittest.TestCase):
                     no_panel=client.post(f'/api/jobs/{folder.name}/print',headers=headers,json={'text':'יום הולדת שמח 3','text_mode':'styled','text_style':'ice','text_background':'none'})
                     self.assertEqual(no_panel.status_code,200,no_panel.text)
                     self.assertEqual(json.loads((folder/'settings.json').read_text())['text_background'],'none')
+                    pink=client.post(f'/api/jobs/{folder.name}/print',headers=headers,json={'text':'יום הולדת שמח','text_mode':'styled','text_style':'ice','text_background':'none','text_color':'#e66ca6'})
+                    self.assertEqual(pink.status_code,200,pink.text)
+                    self.assertEqual(json.loads((folder/'settings.json').read_text())['text_color'],'#E66CA6')
+                    for font in ('rounded','handwritten'):
+                        response=client.post(f'/api/jobs/{folder.name}/print',headers=headers,json={'text':'יום הולדת שמח','text_mode':'styled','text_font':font,'text_color':'#EFC5D5'})
+                        self.assertEqual(response.status_code,200,response.text)
+                        self.assertEqual(json.loads((folder/'settings.json').read_text())['text_font'],font)
+                    self.assertEqual(client.post(f'/api/jobs/{folder.name}/print',headers=headers,json={'text_font':'missing-font'}).status_code,422)
+                    response=client.post(f'/api/jobs/{folder.name}/print',headers=headers,json={'text':'מזל טוב','text_font':'handwritten','text_mode':'styled','text_font_size':40,'text_outline_width':1,'text_outline_color':'#ffffff'})
+                    self.assertEqual(response.status_code,200,response.text)
+                    saved=json.loads((folder/'settings.json').read_text())
+                    self.assertEqual((saved['text_font_size'],saved['text_outline_width'],saved['text_outline_color']),(40,1,'#FFFFFF'))
+                    for bad in ({'text_font_size':1000},{'text_outline_width':-1},{'text_outline_color':'white'}):
+                        self.assertEqual(client.post(f'/api/jobs/{folder.name}/print',headers=headers,json=bad).status_code,422)
+                    self.assertEqual(client.post(f'/api/jobs/{folder.name}/print',headers=headers,json={'text_color':'pink'}).status_code,422)
+                    self.assertEqual((folder/'original.png').read_bytes(),before)
                     moved=client.post(f'/api/jobs/{folder.name}/print',headers=headers,json={'text':'יום הולדת שמח 3','text_mode':'styled','text_style':'ice','text_background':'none','text_scale':.5,'text_x':.72,'text_y':.28})
                     self.assertEqual(moved.status_code,200,moved.text)
                     layout=client.get(f'/api/jobs/{folder.name}/layers').json()

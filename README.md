@@ -21,15 +21,15 @@ Open [localhost:7860](http://127.0.0.1:7860). Stop with **Ctrl+C**.
 
 1. Describe your picture. **English scene prompts are the reliable choice for this model.** Direct Hebrew prompting was inconsistent in testing; there is no automatic translation.
 2. Optionally choose up to four PNG/JPEG/WebP references and explain what to use from each. Each file: up to 10 MB / 25 megapixels. References guide the result but do not guarantee an exact copy. Transparent references are composited on white.
-3. Choose portrait, landscape, square, or quick draft. Four inference steps is the default. Leave the seed blank for a new result.
+3. Choose portrait, landscape, square, or quick draft. Square artwork selects a **20 × 20 cm square print**; you can also choose A4 separately. Four inference steps is the default. Leave the seed blank for a new result.
 4. Add an optional message. **Styled exact text** uses real glyphs, decorative fills and outlines; this is the preferred mode for Hebrew. **Exact text** uses plain glyphs. **AI lettering** asks the model to paint words into the scene and may misspell them.
-5. Drag exact lettering on the canvas. Under the canvas, use **Text size**, **Letter background** (decorative banner or transparent), then **Apply lettering changes**. Size previews immediately; Apply saves size, placement, and background to the downloadable files. Wording and lettering style can also be changed in the form without generating another picture.
+5. Drag exact lettering on the canvas. Under the canvas, choose **Writing style** (classic, rounded, or handwritten) and **Letter finish** (ice, ribbon, gold), set **Font size · points** (blank for automatic fitting), and choose **Outline thickness** (including None) and an optional outline color. The **Lettering & banner scale** slider scales the whole layer. Choose **Letter background** (decorative banner or transparent), enable **Custom letter color** to choose any color while retaining the style, then **Apply lettering changes**. Uncheck custom color to restore the theme palette. Layer scaling previews immediately; Apply updates the writing style, font size, outline, color, placement, and background to the downloadable files. Wording and lettering style can also be changed in the form without generating another picture.
 
-AI lettering is baked into the original picture, so it cannot be dragged or spell-corrected afterward. Generate a clean picture and use exact lettering when wording must be correct. Hebrew mixed with numbers is supported; Arabic shaping is unavailable in the tested Pillow build. The app uses fonts supplied by macOS, without redistributing them.
+AI lettering is baked into the original picture, so it cannot be dragged or spell-corrected afterward. Generate a clean picture and use exact lettering when wording must be correct. Hebrew mixed with numbers is supported; Arabic shaping is unavailable in the tested Pillow build. Classic text uses macOS fonts. Rounded and handwritten text use bundled Varela Round and Gveret Levin fonts, both with Hebrew/English support and their SIL Open Font License notices.
 
 Each job saves its original, cleaned references, settings, model revision, logs, A4 exports, and editable layers under `outputs/<job-id>/`. One image generates at a time. Closing the browser does not stop generation; stopping the server does.
 
-**Print:** A4 is 2480 × 3508 pixels (landscape swaps dimensions), with an exact 210 × 297 mm PDF page. Artwork fits without cropping. Resizing to 300 DPI does not add real detail. Print the PDF at **100% / actual size**. RGB output has no printer-specific color profile.
+**Print:** The 20 × 20 cm option exports 2362 × 2362 pixels at approximately 300 DPI and an exact 200 × 200 mm PDF. Use zero margin for edge-to-edge artwork. A4 is 2480 × 3508 pixels (landscape swaps dimensions), with an exact 210 × 297 mm PDF page. Artwork fits without cropping. Resizing to 300 DPI does not add real detail. Print the PDF at **100% / actual size**. RGB output has no printer-specific color profile.
 
 ## Configuration and home Wi-Fi
 
@@ -53,6 +53,8 @@ Local mode binds to loopback; LAN mode binds to the chosen private interface. Ke
 ./studio.sh generate "A watercolor mountain landscape at sunrise" --seed 42
 ./studio.sh generate "A cheerful birthday illustration" --text "יום הולדת שמח"
 # Optional: --preset draft|portrait|landscape|square, --steps 4, --reference /path/image.png
+# Use --print-size square20 for an exact 20 × 20 cm print.
+# Use --text-color "#E66CA6" for pink lettering with the icy style.
 
 # macOS background website; reads the same .env
 ./studio.sh service start
@@ -107,6 +109,6 @@ Inference uses local weights with Hugging Face offline mode. Downloads need inte
 
 ## License and contributions
 
-Application code is [MIT licensed](LICENSE). Model weights are downloaded separately under **Apache-2.0**; dependencies retain their own licenses, including python-bidi's LGPL terms. Fonts and model weights are not included in this repository. See [third-party notices](docs/THIRD_PARTY.md).
+Application code is [MIT licensed](LICENSE). Model weights are downloaded separately under **Apache-2.0**; dependencies retain their own licenses, including python-bidi's LGPL terms. Model weights and proprietary system fonts are not included. Bundled open fonts retain their separate OFL licenses. See [third-party notices](docs/THIRD_PARTY.md).
 
 Proposed changes go through pull requests and require the repository owner's review before merging to `main`. See [CONTRIBUTING.md](CONTRIBUTING.md). Public forks and pull requests remain possible; they do not grant write access to this repository.
