@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from PIL import Image, ImageOps, UnidentifiedImageError
 from studio.paths import ROOT, MODEL, OUTPUTS, LOGS, operation_lock
+from studio.styled_text import letter_color, lettering_font, outline_width, font_points
 from studio.lettering import MODES, STYLES, print_text
 
 LAN_IP = os.environ.get('STUDIO_LAN_IP')
@@ -187,12 +188,20 @@ async def generate(request: Request):
     # Multipart parser caps each field; total request is additionally bounded below.
     if int(request.headers.get('content-length', '0')) > 45_000_000:
         raise HTTPException(413, 'Upload limit is 40 MB total.')
-    async with request.form(max_files=4, max_fields=20, max_part_size=40_000_000) as form:
+    async with request.form(max_files=4, max_fields=24, max_part_size=40_000_000) as form:
         prompt = str(form.get('prompt', '')).strip()
         text = str(form.get('text', '')).strip()
         text_scale,text_x,text_y=layer_controls(form.get('text_scale',1),form.get('text_x'),form.get('text_y'))
         text_mode = str(form.get('text_mode', 'overlay'))
         text_style = str(form.get('text_style', 'ice'))
+        try:
+            text_color = letter_color(form.get('text_color', ''))
+            text_font = lettering_font(form.get('text_font', 'classic'))
+            text_font_size = font_points(form.get('text_font_size'))
+            text_outline_width = outline_width(form.get('text_outline_width'))
+            text_outline_color = letter_color(form.get('text_outline_color', ''))
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
         text_background = str(form.get('text_background', 'banner'))
         if text_background not in ('banner', 'none'):
             raise HTTPException(422, 'Choose banner or transparent text background.')
@@ -211,7 +220,7 @@ async def generate(request: Request):
             raise HTTPException(422, 'Seed, steps, and margin must be whole numbers.')
         if not prompt or len(prompt) > 4000 or len(text) > 200:
             raise HTTPException(422, 'Enter a prompt up to 4000 characters and overlay text up to 200 characters.')
-        if preset not in PRESETS or orientation not in ('portrait', 'landscape') or position not in ('top', 'center', 'bottom'):
+        if preset not in PRESETS or orientation not in ('portrait', 'landscape', 'square20') or position not in ('top', 'center', 'bottom'):
             raise HTTPException(422, 'Choose a supported layout.')
         if not (0 <= seed < 2**32 and 1 <= steps <= 12 and 0 <= margin <= 20):
             raise HTTPException(422, 'Seed: 0–4294967295; steps: 1–12; margin: 0–20 mm.')
@@ -240,7 +249,7 @@ async def generate(request: Request):
         try:
             folder.mkdir(parents=True)
             width, height = PRESETS[preset]
-            settings = dict(prompt=prompt, text=text, text_mode=text_mode, text_style=text_style, text_background=text_background, text_scale=text_scale, text_x=text_x, text_y=text_y, text_style_detail=text_style_detail, seed=seed, steps=steps, width=width, height=height,
+            settings = dict(prompt=prompt, text=text, text_font_size=text_font_size, text_outline_width=text_outline_width, text_outline_color=text_outline_color, text_font=text_font, text_color=text_color, text_mode=text_mode, text_style=text_style, text_background=text_background, text_scale=text_scale, text_x=text_x, text_y=text_y, text_style_detail=text_style_detail, seed=seed, steps=steps, width=width, height=height,
                             orientation=orientation, text_position=position, margin_mm=margin,
                             model='black-forest-labs/FLUX.2-klein-4B', quantization=8,
                             model_revision=json.loads((MODEL / 'download.json').read_text())['revision'])
@@ -282,6 +291,14 @@ async def reprint(job_id: str, request: Request):
     settings = json.loads((folder / 'settings.json').read_text())
     mode = body.get('text_mode', settings.get('text_mode', 'overlay'))
     style = body.get('text_style', settings.get('text_style', 'ice'))
+    try:
+        text_color = letter_color(body.get('text_color', settings.get('text_color', '')))
+        text_font = lettering_font(body.get('text_font', settings.get('text_font', 'classic')))
+        text_font_size = font_points(body.get('text_font_size',settings.get('text_font_size')))
+        text_outline_width = outline_width(body.get('text_outline_width',settings.get('text_outline_width')))
+        text_outline_color = letter_color(body.get('text_outline_color',settings.get('text_outline_color','')))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
     background = body.get('text_background', settings.get('text_background', 'banner'))
     if background not in ('banner', 'none'):
         raise HTTPException(422, 'Choose banner or transparent text background.')
@@ -290,24 +307,24 @@ async def reprint(job_id: str, request: Request):
     orientation = body.get('orientation', 'portrait')
     position = body.get('text_position', 'bottom')
     margin = body.get('margin_mm', 5)
-    if (not isinstance(text, str) or len(text) > 200 or orientation not in ('portrait', 'landscape')
+    if (not isinstance(text, str) or len(text) > 200 or orientation not in ('portrait', 'landscape', 'square20')
             or position not in ('top', 'center', 'bottom') or not isinstance(margin, int) or not 0 <= margin <= 20):
         raise HTTPException(422, 'Check your birthday message, orientation, position, and margin.')
     text_scale,text_x,text_y=layer_controls(body.get('text_scale',settings.get('text_scale',1)),body.get('text_x',settings.get('text_x')),body.get('text_y',settings.get('text_y')))
     original_mode = settings.get('text_mode', 'overlay')
     if mode not in MODES or style not in STYLES or not isinstance(detail, str) or len(detail) > 300:
         raise HTTPException(422, 'Choose a supported lettering mode/style.')
-    if (mode != original_mode and 'integrated' in (mode, original_mode)) or (original_mode == 'integrated' and any((text != settings.get('text', ''), position != settings.get('text_position', 'bottom'), style != settings.get('text_style', 'ice'), detail != settings.get('text_style_detail', '')))):
+    if (mode != original_mode and 'integrated' in (mode, original_mode)) or (original_mode == 'integrated' and any((text_font_size != settings.get('text_font_size'), text_outline_width != settings.get('text_outline_width'), text_outline_color != settings.get('text_outline_color',''), text_font != settings.get('text_font', 'classic'), text_color != settings.get('text_color', ''), text != settings.get('text', ''), position != settings.get('text_position', 'bottom'), style != settings.get('text_style', 'ice'), detail != settings.get('text_style_detail', '')))):
         raise HTTPException(409, 'Model-rendered lettering needs a new generation. Use Generate artwork to change its message, style, position, or mode.')
     if job_lock.locked():
         raise HTTPException(409, 'Wait for the current image operation to finish.')
     async with job_lock:
         try:
-            await asyncio.to_thread(export_print, folder / 'original.png', folder, orientation, '' if mode == 'integrated' else text, position, margin, text_mode=mode, text_style=style, text_background=background, text_scale=text_scale, text_x=text_x, text_y=text_y)
+            await asyncio.to_thread(export_print, folder / 'original.png', folder, orientation, '' if mode == 'integrated' else text, position, margin, text_mode=mode, text_style=style, text_background=background, text_scale=text_scale, text_x=text_x, text_y=text_y, text_color=text_color, text_font=text_font, text_font_size=text_font_size, text_outline_width=text_outline_width, text_outline_color=text_outline_color)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
         settings = json.loads((folder / 'settings.json').read_text())
-        settings.update(text=text, text_mode=mode, text_style=style, text_background=background, text_scale=text_scale, text_x=text_x, text_y=text_y, text_style_detail=detail, orientation=orientation, text_position=position, margin_mm=margin)
+        settings.update(text=text, text_font_size=text_font_size, text_outline_width=text_outline_width, text_outline_color=text_outline_color, text_font=text_font, text_color=text_color, text_mode=mode, text_style=style, text_background=background, text_scale=text_scale, text_x=text_x, text_y=text_y, text_style_detail=detail, orientation=orientation, text_position=position, margin_mm=margin)
         (folder / 'settings.json').write_text(json.dumps(settings, indent=2, ensure_ascii=False) + '\n')
     saved_status=json.loads((folder/'status.json').read_text())
     write_status(folder,**{**saved_status,'print_updated_at':time.time()})
@@ -322,9 +339,10 @@ def layers(job_id: str):
 
 @app.get('/files/{job_id}/{filename}')
 def files(job_id: str, filename: str):
-    if filename not in {'original.png', 'original.json', 'a4.png', 'a4.pdf', 'settings.json', 'generation.log', 'generation-prompt.txt', 'a4-base.png', 'lettering.png', 'lettering-layout.json'}:
+    if filename not in {'original.png', 'original.json', 'a4.png', 'a4.pdf', 'print.png', 'print.pdf', 'settings.json', 'generation.log', 'generation-prompt.txt', 'a4-base.png', 'lettering.png', 'lettering-layout.json'}:
         raise HTTPException(404)
-    path = job_path(job_id) / filename
+    stored_name = {'print.png':'a4.png', 'print.pdf':'a4.pdf'}.get(filename, filename)
+    path = job_path(job_id) / stored_name
     if not path.is_file() or path.is_symlink():
         raise HTTPException(404)
     return FileResponse(path, filename=filename)
