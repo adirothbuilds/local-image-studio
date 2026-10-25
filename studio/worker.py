@@ -31,7 +31,7 @@ def main(folder):
     image = model.generate_image(**kwargs)
     image.save(path=str(folder / 'original.png'), export_json_metadata=True)
     print('Preparing A4 exports…', flush=True)
-    export_print(folder / 'original.png', folder, config['orientation'], print_text(config), config['text_position'], config['margin_mm'], text_mode=config.get('text_mode', 'overlay'), text_style=config.get('text_style', 'ice'), text_background=config.get('text_background', 'banner'), text_scale=config.get('text_scale',1), text_x=config.get('text_x'), text_y=config.get('text_y'))
+    export_print(folder / 'original.png', folder, config['orientation'], print_text(config), config['text_position'], config['margin_mm'], text_mode=config.get('text_mode', 'overlay'), text_style=config.get('text_style', 'ice'), text_background=config.get('text_background', 'banner'), text_scale=config.get('text_scale',1), text_x=config.get('text_x'), text_y=config.get('text_y'), text_color=config.get('text_color',''), text_font=config.get('text_font','classic'), text_font_size=config.get('text_font_size'), text_outline_width=config.get('text_outline_width'), text_outline_color=config.get('text_outline_color',''))
     result = {'elapsed_seconds': round(time.monotonic() - started, 2),
               'peak_gpu_memory_gb': round(mx.get_peak_memory() / 1e9, 2)}
     (folder / 'result.json').write_text(json.dumps(result, indent=2) + '\n')

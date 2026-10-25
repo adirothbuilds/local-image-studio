@@ -7,20 +7,23 @@ import subprocess
 import sys
 import uuid
 from PIL import Image, ImageOps
+from studio.styled_text import letter_color, lettering_font
 from studio.paths import ROOT, MODEL, OUTPUTS, operation_lock
 
 PRESETS = {'draft': (512,512), 'portrait': (832,1184), 'landscape': (1184,832), 'square': (1024,1024)}
 
-def generate(folder, prompt, preset='portrait', seed=42, steps=4, text='', references=()):
+def generate(folder, prompt, preset='portrait', seed=42, steps=4, text='', references=(), print_size=None, text_color='', text_font='classic'):
+    text_font=lettering_font(text_font)
+    text_color=letter_color(text_color)
     manifest = MODEL / 'download.json'
     if not manifest.exists():
         raise RuntimeError('Run ./studio.sh setup to download the model.')
     width, height = PRESETS[preset]
     folder.mkdir(parents=True)
     config = dict(prompt=prompt, seed=seed, steps=steps, width=width, height=height,
-                  text=text, text_mode='styled', text_style='ice', text_background='none',
+                  text=text, text_font=text_font, text_color=text_color, text_mode='styled', text_style='ice', text_background='none',
                   text_position='top', text_scale=1, text_x=None, text_y=None,
-                  orientation='landscape' if preset=='landscape' else 'portrait', margin_mm=5,
+                  orientation=print_size or ('square20' if preset=='square' else 'landscape' if preset=='landscape' else 'portrait'), margin_mm=5,
                   model='black-forest-labs/FLUX.2-klein-4B', quantization=8,
                   model_revision=json.loads(manifest.read_text())['revision'])
     (folder/'settings.json').write_text(json.dumps(config, indent=2, ensure_ascii=False)+'\n')
@@ -50,6 +53,9 @@ def main():
     parser.add_argument('--preset',choices=PRESETS,default='portrait')
     parser.add_argument('--seed',type=int,default=None)
     parser.add_argument('--steps',type=int,choices=range(1,13),default=4)
+    parser.add_argument('--print-size',choices=('portrait','landscape','square20'),default=None,help='A4 portrait/landscape or 20 × 20 cm square; defaults to artwork shape')
+    parser.add_argument('--text-font',choices=('classic','rounded','handwritten'),default='classic',help='Writing shape, independent of color and finish')
+    parser.add_argument('--text-color',default='',help='Custom letter color, e.g. #E66CA6; empty uses theme')
     parser.add_argument('--text',default='',help='Exact styled message; supports Hebrew')
     parser.add_argument('--reference',type=Path,action='append',default=[])
     args=parser.parse_args()
@@ -60,7 +66,7 @@ def main():
         parser.error('Seed must be 0–4294967295.')
     with operation_lock():
         folder=OUTPUTS/str(uuid.uuid4())
-        data=generate(folder,args.prompt,args.preset,seed,args.steps,args.text,args.reference)
+        data=generate(folder,args.prompt,args.preset,seed,args.steps,args.text,args.reference,args.print_size,args.text_color,args.text_font)
     print(json.dumps(data,indent=2))
     print('Artwork and A4 exports:',folder)
 
